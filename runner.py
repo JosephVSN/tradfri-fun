@@ -9,6 +9,7 @@ from colormath.color_objects import sRGBColor, XYZColor
 
 import asyncio
 import argparse
+import uuid
 
 def get_lights():
 	""" Gets all of the user's current lights connected to the gateway """
@@ -35,8 +36,9 @@ if __name__ == "__main__":
 	
 	# Create APIFactory with credentials
 	try:
-		# TODO - Figure out how this construction works
-		api_f = APIFactory(host=args.host, psk_id=idt, psk=args.code)
+		# Do we really need to generate this uid?
+		api_f = APIFactory(host=args.host, psk_id=uuid.uuid4().hex, psk=args.code)
+		print("Connected to Tradfri!\nIP: %s\nCode: %s", % args.host, args.code)
 	except:
 		# TODO - Probably a TradfriError?
 		print("Error generating API object for gateway.")
@@ -52,5 +54,12 @@ if __name__ == "__main__":
 	devices_c = await api(devices)
 	devices = await api(devices_c)
 
+	# Get lights to edit
+	lights = [dev for dev in devices if dev.has_light_control]
 	# TODO - OK to send to routines now
 	# TODO - Make routines Async
+
+	# End Procedure
+	await api_f.shutdown()
+
+asyncio.get_event_loop().run_until_complete(run())
