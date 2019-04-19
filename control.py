@@ -17,11 +17,16 @@ from pytradfri.util import load_json, save_json
 from colormath.color_conversions import convert_color
 from colormath.color_objects import sRGBColor, XYZColor
 
+# Pylast for bpm
+import pylast
+
 # etc. imports
 from random import shuffle
 import asyncio
 import uuid
 import argparse
+import json
+import requests
 
 # Constants
 CONFIG_FILE = 'tradfri_standalone_psk.conf'
@@ -65,6 +70,41 @@ if args.host not in load_json(CONFIG_FILE) and args.key is None:
         raise PytradfriError("Invalid 'Security Code' provided.")
     else:
         args.key = key
+
+async def get_bpm():
+    data = {}
+    with open("tokens.json") as f:
+        bpm_key = json.load(f)['bpm']['api_key']
+        f.seek(0)
+        data = json.load(f)['last_fm']
+    public = data['api_public']
+    secret = data['api_secret']
+    user = data['username']
+    password = pylast.md5(data['password'])
+    network = pylast.LastFMNetwork(api_key=public, api_secret=secret,
+                                   username=user, password_hash=password)
+    user_obj = network.get_user(user)
+    song = user_obj.get_recent_tracks(limit=2)[0].track
+    artist = song.artist.name
+    title = song.title
+    print("Most recent song: %s - %s" % (title, artist))
+    # Get BPM
+    url_start = "https://api.getsongbpm.com/search/?api_key="
+    url_end = "&type=both&lookup="
+    title_fmt = title.replace(" ", "+")
+    artist_fmt = artist.replace(" ", "+")
+    url = url_start + bpm_key + url_end + "song: " + title_fmt + " artist:" + artist_fmt
+    r = requests.get(url)
+    if r.status_code != 200:
+        sys.exit()
+    bpm_json = r.json()['search']
+    try:
+        bpm = bpm_json[0]['tempo']
+    except:
+        print("no result")
+        sys.exit()
+    print("\tBPM is %i" % bpm)
+    return bpm
 
 async def cycle(light, api, delay=5):
     """ Cycles through all RGB values, with delay defaulted to 30 seconds for a full change """
