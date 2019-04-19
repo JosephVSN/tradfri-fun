@@ -42,10 +42,20 @@ CYCLE_COLORS = [BLUE, RED, GREEN, WHITE, YELLOW, ORANGE, PURPLE, PINK]
 parser = argparse.ArgumentParser()
 parser.add_argument('host', metavar='IP', type=str,
                     help='IP Address of your Tradfri gateway')
+parser.add_argument('-c', '--cycle', store=True, required=False,
+                    help='Smooth cycle through preset colours')
+parser.add_argument('-s', '--strobe', store=True, required=False,
+                    help='Emulate strobe lights')
 parser.add_argument('-K', '--key', dest='key', required=False,
                     help='Key found on your Tradfri gateway')
 args = parser.parse_args()
 
+# If no cycle was picked then default to cycle
+if not args.cycle and not args.strobe:
+    args.cycle = True
+# Force strobe and cycle to be mutually exclusive
+if args.cycle and args.strobe:
+    raise RuntimeError("Cycle and Strobe are mutually exclusive; pick one command.")
 # Look for host in JSON; write if new
 if args.host not in load_json(CONFIG_FILE) and args.key is None:
     print("Please provide the 'Security Code' on the back of your "
@@ -59,7 +69,6 @@ if args.host not in load_json(CONFIG_FILE) and args.key is None:
 async def cycle(light, api, delay=5):
     """ Cycles through all RGB values, with delay defaulted to 30 seconds for a full change """
     print("Starting cycle..")
-    ui = ""
     while(True):
         shuffle(CYCLE_COLORS)  # Randomize order - TODO does this work?
         for c in CYCLE_COLORS:
@@ -70,6 +79,20 @@ async def cycle(light, api, delay=5):
             # Send command to light then sleep for smooth transition
             await api(light.light_control.set_xy_color(xy[0], xy[1], transition_time=delay*9))
             await asyncio.sleep(delay)
+
+async def strobe(light, api):
+    """ Does a 'strobe'-esque effect with the preset colours """
+    print("Starting strobe..")
+    while(True):
+        shuffle(CYCLE_COLORS)  # Randomize order
+        for s in CYCLE_COLORS:
+            # Convert to CIE XYZ colour
+            xyz = convert_color(sRGBColor(c[0], c[1], c[2]), XYZColor,
+                                observer='2', target_illuminant='d65')
+            xy = int(xyz.xyz_x), int(xyz.xyz_y)
+            # Send command to light then sleep for smooth transition
+            await api(light.light_control.set_xy_color(xy[0], xy[1], transition_time=1))
+            await asyncio.sleep(2)
 
 async def run():
     # Assign configuration variables.
@@ -112,8 +135,11 @@ async def run():
         print("No color bulbs found")
         return
     
-    # Run cycle
-    await cycle(light, api)
+    # Check what procedure to run
+    if args.cycle:
+        await cycle(light, api)
+    elif args.strobe:
+        await strobe(light, api)   
     print("Run ended.")
     return  # shutdown() throws an error so just exit
     # TODO - Find a way to actually shutdown
