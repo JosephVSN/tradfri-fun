@@ -25,4 +25,4 @@ This project is licensed under the GNU License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-* @ggravlingen for the pytradfri library & example code that this script is based on
+* [@ggravlingen](https://github.com/ggravlingen) for the pytradfri library & example code that this script is based on
