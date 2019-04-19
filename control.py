@@ -85,7 +85,7 @@ async def strobe(light, api):
     print("Starting strobe..")
     while(True):
         shuffle(CYCLE_COLORS)  # Randomize order
-        for s in CYCLE_COLORS:
+        for c in CYCLE_COLORS:
             # Convert to CIE XYZ colour
             xyz = convert_color(sRGBColor(c[0], c[1], c[2]), XYZColor,
                                 observer='2', target_illuminant='d65')
