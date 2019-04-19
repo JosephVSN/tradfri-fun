@@ -91,8 +91,8 @@ async def strobe(light, api):
                                 observer='2', target_illuminant='d65')
             xy = int(xyz.xyz_x), int(xyz.xyz_y)
             # Send command to light then sleep for smooth transition
-            await api(light.light_control.set_xy_color(xy[0], xy[1], transition_time=1))
-            await asyncio.sleep(2)
+            await api(light.light_control.set_xy_color(xy[0], xy[1], transition_time=.5))
+            await asyncio.sleep(.1)
 
 async def run():
     # Assign configuration variables.
