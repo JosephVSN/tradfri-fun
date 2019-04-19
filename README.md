@@ -8,16 +8,16 @@ Follow the instructions on the [pytradfri](https://github.com/ggravlingen/pytrad
 Once pytradfri and it's requirements are installed, clone this repository and run 
 
 ```python
-control.py IP [-K key]
+control.py IP [-c|--cycle] [-s|--strobe] [-K key]
 ```
 
-### Prerequisites
+## Methods
 
-What things you need to install the software and how to install them
+#### Cycle
+Does a smooth cycle through a few different preset colours. Time between transitions is roughly done through the STEP constant. 
 
-```
-Give examples
-```
+#### Strobe
+Does a "strobe"-esque effect through preset colours.
 
 ## License
 
