@@ -42,9 +42,9 @@ CYCLE_COLORS = [BLUE, RED, GREEN, WHITE, YELLOW, ORANGE, PURPLE, PINK]
 parser = argparse.ArgumentParser()
 parser.add_argument('host', metavar='IP', type=str,
                     help='IP Address of your Tradfri gateway')
-parser.add_argument('-c', '--cycle', store=True, required=False,
+parser.add_argument('-c', '--cycle', action="store_true", required=False,
                     help='Smooth cycle through preset colours')
-parser.add_argument('-s', '--strobe', store=True, required=False,
+parser.add_argument('-s', '--strobe', action="store_true", required=False,
                     help='Emulate strobe lights')
 parser.add_argument('-K', '--key', dest='key', required=False,
                     help='Key found on your Tradfri gateway')
