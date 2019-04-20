@@ -17,9 +17,6 @@ from pytradfri.util import load_json, save_json
 from colormath.color_conversions import convert_color
 from colormath.color_objects import sRGBColor, XYZColor
 
-# Pylast for bpm
-import pylast
-
 # etc. imports
 from random import shuffle
 import asyncio
@@ -31,6 +28,7 @@ import requests
 # Constants
 CONFIG_FILE = 'tradfri_standalone_psk.conf'
 STEP = 1000   # Used for sleeps and transition_time
+SPOTIFY_URL = "https://api.spotify.com/v1/me/player/currently-playing"
 
 # Color definitions and a list containing them
 BLUE      = (0, 0, 100)
@@ -71,23 +69,7 @@ if args.host not in load_json(CONFIG_FILE) and args.key is None:
     else:
         args.key = key
 
-async def get_bpm():
-    data = {}
-    with open("tokens.json") as f:
-        bpm_key = json.load(f)['bpm']['api_key']
-        f.seek(0)
-        data = json.load(f)['last_fm']
-    public = data['api_public']
-    secret = data['api_secret']
-    user = data['username']
-    password = pylast.md5(data['password'])
-    network = pylast.LastFMNetwork(api_key=public, api_secret=secret,
-                                   username=user, password_hash=password)
-    user_obj = network.get_user(user)
-    song = user_obj.get_recent_tracks(limit=2)[0].track
-    artist = song.artist.name
-    title = song.title
-    print("Most recent song: %s - %s" % (title, artist))
+def get_bpm(title, artist, bpm_key):
     # Get BPM
     url_start = "https://api.getsongbpm.com/search/?api_key="
     url_end = "&type=both&lookup="
@@ -103,8 +85,8 @@ async def get_bpm():
     except:
         print("no result")
         sys.exit()
-    print("\tBPM is %i" % bpm)
-    return bpm
+    print("\tBPM is %s" % bpm)
+    return int(bpm)
 
 async def cycle(light, api, delay=5):
     """ Cycles through all RGB values, with delay defaulted to 30 seconds for a full change """
@@ -122,17 +104,39 @@ async def cycle(light, api, delay=5):
 
 async def strobe(light, api):
     """ Does a 'strobe'-esque effect with the preset colours """
+    while(True):
+        shuffle(CYCLE_COLORS)
+        title = ""
+        for c in CYCLE_COLORS:
+            xyz = convert_color(sRGBColor(c[0], c[1], c[2]), XYZColor,
+                                observer='2', target_illuminant='d65')
+            xy = int(xyz.xyz_x), int(xyz.xyz_y)
+            await api(light.light_control.set_xy_color(xy[0], xy[1], transition_time=.5))
+            await asyncio.sleep(.1)
+
+async def strobe_bpm(light, api, spotify_key, bpm_key):
+    """ Does a 'strobe'-esque effect with the preset colours """
     print("Starting strobe..")
     while(True):
         shuffle(CYCLE_COLORS)  # Randomize order
+        title = ""
         for c in CYCLE_COLORS:
+            r = requests.get(SPOTIFY_URL, headers={"Authorization" : "Bearer " + spotify_key})
+            if r.status_code != 200:
+                print("Bad status code")
+                return
+            r = r.json()
+            if r == "" or r['item']['name'] != title:
+                title = r['item']['name']
+                artist = r['item']['artists'][0]['name']
+                print("Artist: %s\nTitle: %s" % (artist, title))
+                bps = float(get_bpm(title, artist, bpm_key) / 60)
             # Convert to CIE XYZ colour
             xyz = convert_color(sRGBColor(c[0], c[1], c[2]), XYZColor,
                                 observer='2', target_illuminant='d65')
             xy = int(xyz.xyz_x), int(xyz.xyz_y)
             # Send command to light then sleep for smooth transition
-            await api(light.light_control.set_xy_color(xy[0], xy[1], transition_time=.5))
-            await asyncio.sleep(.1)
+            await api(light.light_control.set_xy_color(xy[0], xy[1], transition_time=bps/4))
 
 async def run():
     # Assign configuration variables.
@@ -174,7 +178,13 @@ async def run():
     if not light:
         print("No color bulbs found")
         return
-    
+     
+    # Get auth
+    with open("tokens.json") as f:
+        js = json.load(f)
+        spotify_key = js['spotify']['auth']
+        bpm_key = js['bpm']['api_key']   
+ 
     # Check what procedure to run
     if args.cycle:
         await cycle(light, api)
