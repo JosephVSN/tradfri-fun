@@ -49,12 +49,14 @@ parser.add_argument('-c', '--cycle', action="store_true", required=False,
                     help='Smooth cycle through preset colours')
 parser.add_argument('-s', '--strobe', action="store_true", required=False,
                     help='Emulate strobe lights')
+parser.add_argument('-b', '--brightness', action="store_true", required=False,
+                    help="Slide brightness from 0 to 100 back to 0.")
 parser.add_argument('-K', '--key', dest='key', required=False,
                     help='Key found on your Tradfri gateway')
 args = parser.parse_args()
 
 # If no cycle was picked then default to cycle
-if not args.cycle and not args.strobe:
+if not args.cycle and not args.strobe and not args.brightness:
     args.cycle = True
 # Force strobe and cycle to be mutually exclusive
 if args.cycle and args.strobe:
@@ -87,6 +89,17 @@ def get_bpm(title, artist, bpm_key):
         sys.exit()
     print("\tBPM is %s" % bpm)
     return int(bpm)
+
+async def slider_brightness(light, api, delay=5):
+    """ Slides through all brightnesses 0 - 100 and back down. """
+    print("Starting brightness slider...")
+    while(True):
+        for i in range(0, 101):
+            await api(light.light_control.set_dimmer(i, transition_time=delay*9))
+            await asyncio.sleep(delay)
+        for i in range(99, -1):
+            await api(light.light_control.set_dimmer(i, transition_time=delay*9))
+            await asyncio.sleep(delay)
 
 async def cycle(light, api, delay=5):
     """ Cycles through all RGB values, with delay defaulted to 30 seconds for a full change """
@@ -189,7 +202,9 @@ async def run():
     if args.cycle:
         await cycle(light, api)
     elif args.strobe:
-        await strobe(light, api)   
+        await strobe(light, api)
+    elif args.brightness:
+        await slider_brightness(light, api)
     print("Run ended.")
     return  # shutdown() throws an error so just exit
     # TODO - Find a way to actually shutdown
